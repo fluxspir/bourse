@@ -7,7 +7,7 @@ from meta import Base
 import basic
 
 from sqlalchemy import Table, Column, Integer, Float, String, Date, DateTime
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, MetaData
 from sqlalchemy.orm import relationship
 
 class Ucits(Base):
