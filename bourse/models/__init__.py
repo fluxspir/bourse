@@ -11,8 +11,8 @@ from sqlalchemy.orm import sessionmaker, scoped_session
 from zope.sqlalchemy import ZopeTransactionExtension
 
 from basic import Currency, Date
-from ucits import Ucits, UcitsDailyValue
-from ucits import UcitsPerformanceUcits, UcitsPerformanceMorningstar
+from ucits import (Ucits, UcitsDailyValue
+                    UcitsPerformanceUcits, UcitsPerformanceMorningstar)
 
 def init():
     parser = ConfigParser.ConfigParser()
