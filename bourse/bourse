@@ -48,19 +48,19 @@ class DbHandlerUcits():
         self.session = session
 
     def _test_currency(self, cur):
-        query = self.session.query(Currency)
-        query = query.filter(Currency.symbol == cur).one_or_none()
+        query = self.session.query(models.Currency)
+        query = query.filter(models.Currency.symbol == cur).one_or_none()
         return query
 
     def _test_ucits(self, code):
-        query = self.session.query(Ucits)
-        query = query.filter(Ucits.code == code).one_or_none()
+        query = self.session.query(models.Ucits)
+        query = query.filter(models.Ucits.code == code).one_or_none()
         return query
 
     def _test_ucits_datas(self, datas):
-        query = self.session.query(Ucits)
+        query = self.session.query(models.Ucits)
         for elem in "name", "owner", "resume":
-            result = query.filter(Ucits.code == datas["code"]).one()
+            result = query.filter(models.Ucits.code == datas["code"]).one()
             if not getattr(result, elem) == datas[elem]:
                 old_value = getattr(result, elem)
                 if not getattr(result, elem):
@@ -75,36 +75,43 @@ class DbHandlerUcits():
                 self.session.commit()
 
     def _test_date(self, date):
-        query = self.session.query(Date)
-        query = query.filter(Date.date == date).one_or_none()
+        query = self.session.query(models.Date)
+        query = query.filter(models.Date.date == date).one_or_none()
         return query
 
     def _test_ucits_daily_value(self, code, date):
-        code_id = self.session.query(Ucits).filter(Ucits.code == code).one().id
-        date_id = self.session.query(Date).filter(Date.date == date).one().id
-        query = self.session.query(UcitsDailyValue)
-        query = query.filter(and_(UcitsDailyValue.ucits_id == code_id,
-                                UcitsDailyValue.date_id == date_id)
+        code_id = self.session.query(models.Ucits).filter(
+                                            models.Ucits.code == code).one().id
+        date_id = self.session.query(models.Date).filter(
+                                            models.Date.date == date).one().id
+        query = self.session.query(models.UcitsDailyValue)
+        query = query.filter(and_(models.UcitsDailyValue.ucits_id == code_id,
+                                models.UcitsDailyValue.date_id == date_id)
                                 ).one_or_none()
         return query
 
     def _test_ucits_perf_ucits(self, code, date):
-        code_id = self.session.query(Ucits).filter(Ucits.code == code).one().id
-        date_id = self.session.query(Date).filter(Date.date == date).one().id
-        query = self.session.query(UcitsPerformanceUcits)
-        query = query.filter(and_(UcitsPerformanceUcits.ucits_id == code_id,
-                                  UcitsPerformanceUcits.date_id == date_id)
-                                ).one_or_none()
+        code_id = self.session.query(models.Ucits).filter(
+                                            models.Ucits.code == code).one().id
+        date_id = self.session.query(models.Date).filter(
+                                            models.Date.date == date).one().id
+        query = self.session.query(models.UcitsPerformanceUcits)
+        query = query.filter(and_(
+                            models.UcitsPerformanceUcits.ucits_id == code_id,
+                            models.UcitsPerformanceUcits.date_id == date_id)
+                            ).one_or_none()
         return query
 
     def _test_ucits_perf_morningstar(self, code, date):
-        code_id = self.session.query(Ucits).filter(Ucits.code == code).one().id
-        date_id = self.session.query(Date).filter(Date.date == date).one().id
-        query = self.session.query(UcitsPerformanceMorningstar)
+        code_id = self.session.query(models.Ucits).filter(
+                                            models.Ucits.code == code).one().id
+        date_id = self.session.query(models.Date).filter(
+                                            models.Date.date == date).one().id
+        query = self.session.query(models.UcitsPerformanceMorningstar)
         query = query.filter(and_(
-                            UcitsPerformanceMorningstar.ucits_id == code_id,
-                            UcitsPerformanceMorningstar.date_id == date_id,)
-                                ).one_or_none()
+                        models.UcitsPerformanceMorningstar.ucits_id == code_id,
+                        models.UcitsPerformanceMorningstar.date_id == date_id,)
+                        ).one_or_none()
         return query
 
     def add(self, datas):
@@ -113,7 +120,7 @@ class DbHandlerUcits():
         if not self._test_currency(datas["currency"]):
             values = { "symbol": datas["currency"] }
             try:
-                new_entry = Currency(**values)
+                new_entry = models.Currency(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:
@@ -129,7 +136,7 @@ class DbHandlerUcits():
                         "resume": datas["resume"]
                     }
             try:
-                new_entry = Ucits(**values)
+                new_entry = models.Ucits(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:
@@ -146,7 +153,7 @@ class DbHandlerUcits():
         if not self._test_date(datas["date"]):
             values = { "date": datas["date"] }
             try:
-                new_entry = Date(**values)
+                new_entry = models.Date(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:
@@ -155,12 +162,13 @@ class DbHandlerUcits():
 
         # adding the daily values of the ucits
         if not self._test_ucits_daily_value(datas["code"], datas["date"]):
-            code = self.session.query(Ucits).filter(Ucits.code == datas["code"]
-                                                    ).one().id
-            date = self.session.query(Date).filter(Date.date == datas["date"]
-                                                    ).one().id
-            currency = self.session.query(Currency).filter(Currency.symbol ==
-                                                    datas["currency"]).one().id
+            code = self.session.query(models.Ucits).filter(
+                                models.Ucits.code == datas["code"]).one().id
+            date = self.session.query(models.Date).filter(
+                                models.Date.date == datas["date"]).one().id
+            currency = self.session.query(models.Currency).filter(
+                                models.Currency.symbol ==datas["currency"]
+                                ).one().id
             values = { "ucits_id": code,
                         "date_id": date,
                         "timestamp": datetime.datetime.now(),
@@ -169,7 +177,7 @@ class DbHandlerUcits():
                         "variation": datas["variation"]
                     }
             try:
-                new_entry = UcitsDailyValue(**values)
+                new_entry = models.UcitsDailyValue(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:
@@ -180,10 +188,10 @@ class DbHandlerUcits():
 
         # adding performances
         if not self._test_ucits_perf_ucits(datas["code"], datas["date"]):
-            code = self.session.query(Ucits).filter(Ucits.code == datas["code"]
-                                                    ).one().id
-            date = self.session.query(Date).filter(Date.date == datas["date"]
-                                                    ).one().id
+            code = self.session.query(models.Ucits).filter(
+                                models.Ucits.code == datas["code"]).one().id
+            date = self.session.query(models.Date).filter(
+                                models.Date.date == datas["date"]).one().id
             perf = datas["ucits_perf"]
             values = { "ucits_id": code,
                         "date_id": date,
@@ -198,7 +206,7 @@ class DbHandlerUcits():
                         "ten_years": perf[8]
                     }
             try:
-                new_entry = UcitsPerformanceUcits(**values)
+                new_entry = models.UcitsPerformanceUcits(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:
@@ -207,10 +215,10 @@ class DbHandlerUcits():
                 raise
 
         if not self._test_ucits_perf_morningstar(datas["code"], datas["date"]):
-            code = self.session.query(Ucits).filter(Ucits.code == datas["code"]
-                                                    ).one().id
-            date = self.session.query(Date).filter(Date.date == datas["date"]
-                                                    ).one().id
+            code = self.session.query(models.Ucits).filter(
+                                models.Ucits.code == datas["code"]).one().id
+            date = self.session.query(models.Date).filter(
+                                models.Date.date == datas["date"]).one().id
             perf = datas["ucits_morningstar_perf"]
             values = { "ucits_id": code,
                         "date_id": date,
@@ -225,7 +233,7 @@ class DbHandlerUcits():
                         "ten_years": perf[8]
                     }
             try:
-                new_entry = UcitsPerformanceMorningstar(**values)
+                new_entry = models.UcitsPerformanceMorningstar(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:
@@ -320,7 +328,7 @@ if __name__ == "__main__":
 
     try:    
         if ucits_list and ucits_url:
-            u_handler = DbHandlerUcits(session)
+            u_handler = DbHandlerUcits(meta.session)
             for ucits in ucits_list:
                 ucits_datas = dload_prettify_ucits_info(
                                             "{}{}".format(ucits_url, ucits),
