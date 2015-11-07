@@ -1,0 +1,415 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+
+import pdb
+
+import os
+import ConfigParser
+import json
+import datetime
+
+import requests
+from bs4 import BeautifulSoup, SoupStrainer
+
+import sqlalchemy
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, Float, String, Date, DateTime, Boolean
+from sqlalchemy import ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy import and_
+
+Base = declarative_base()
+
+
+confparser = ConfigParser.ConfigParser()
+home = os.path.expanduser("~")
+rc_file = ".franckdbrc"
+
+confparser.read(os.path.join(home, rc_file))
+
+db_url = confparser.get("bourse", "db_url")
+
+try:
+    ucits_list = json.loads(confparser.get("bourse", "ucits"))
+    ucits_url = confparser.get("bourse", "ucits_url")
+    ucits_perf = confparser.get("bourse", "ucits_perf")
+except ConfigParser.NoOptionError:
+    ucits_list = []
+    ucits_url = None
+    ucits_perf = None
+try:
+    stock_list = json.loads(confparser.get("bourse", "stock"))
+    stock_url = confparser.get("bourse", "stock_url")
+    stock_perf = confparser.get("bourse", "stock_perf")
+except ConfigParser.NoOptionError:
+    stock_list = []
+    stock_url = None
+    stock_perf = None
+
+
+
+class Currency(Base):
+    __tablename__ = "currency"
+    id = Column(Integer, primary_key=True)
+    symbol = Column(String, unique=True, nullable=False)
+    name = Column(String, unique=True)
+
+class Date(Base):
+    __tablename__ = "date"
+    id = Column(Integer, primary_key=True)
+    date = Column(Date, unique=True)
+
+class Ucits(Base):
+    __tablename__ = "ucits"
+    id = Column(Integer, primary_key=True)
+    code = Column(String, unique=True)
+    name = Column(String)
+    owner = Column(String)
+    resume = Column(String)
+
+class UcitsDailyValue(Base):
+    __tablename__ = "ucits_daily_value"
+    id = Column(Integer, primary_key=True)
+    timestamp = Column(DateTime, unique=True)
+    ucits_id = Column(Integer, ForeignKey(Ucits.id), nullable=False)
+    ucits= relationship("Ucits")
+    date_id = Column(Integer, ForeignKey(Date.id), nullable=False)
+    date = relationship("Date")
+    currency_id = Column(Integer, ForeignKey(Currency.id), nullable=False)
+    currency = relationship("Currency")
+    value = Column(Float, nullable=False)
+    variation = Column(Float, nullable=False)
+
+class UcitsPerformanceUcits(Base):
+    __tablename__ = "ucits_performance_ucits"
+    id = Column(Integer, primary_key=True)
+    ucits_id = Column(Integer, ForeignKey(Ucits.id), nullable=False)
+    ucits = relationship("Ucits")
+    date_id = Column(Integer, ForeignKey(Date.id), nullable=False)
+    date = relationship("Date")
+    last_week = Column(Float)
+    january_first = Column(Float)
+    last_month = Column(Float)
+    three_months = Column(Float)
+    six_months = Column(Float)
+    one_year = Column(Float)
+    three_years = Column(Float)
+    five_years = Column(Float)
+    ten_years = Column(Float)
+
+class UcitsPerformanceMorningstar(Base):
+    __tablename__ = "ucits_performance_morningstar"
+    id = Column(Integer, primary_key=True)
+    ucits_id = Column(Integer, ForeignKey(Ucits.id), nullable=False)
+    ucits = relationship("Ucits")
+    date_id = Column(Integer, ForeignKey(Date.id), nullable=False)
+    date = relationship("Date")
+    last_week = Column(Float)
+    january_first = Column(Float)
+    last_month = Column(Float)
+    three_months = Column(Float)
+    six_months = Column(Float)
+    one_year = Column(Float)
+    three_years = Column(Float)
+    five_years = Column(Float)
+    ten_years = Column(Float)
+
+class DbHandlerUcits():
+    def __init__(self, session):
+        self.session = session
+
+    def _test_currency(self, cur):
+        query = self.session.query(Currency)
+        query = query.filter(Currency.symbol == cur).one_or_none()
+        return query
+
+    def _test_ucits(self, code):
+        query = self.session.query(Ucits)
+        query = query.filter(Ucits.code == code).one_or_none()
+        return query
+
+    def _test_ucits_datas(self, datas):
+        query = self.session.query(Ucits)
+        for elem in "name", "owner", "resume":
+            result = query.filter(Ucits.code == datas["code"]).one()
+            if not getattr(result, elem) == datas[elem]:
+                old_value = getattr(result, elem)
+                if not getattr(result, elem):
+                    old_value = ""
+                setattr(result, elem, datas[elem])
+                msg = "Updating {} - {} \n from old value {} \n\
+                                with new value {}".format("Ucits", 
+                                        elem,
+                                        old_value.encode("utf_8"),
+                                        datas[elem].encode("utf_8"))
+                print(msg)
+                self.session.commit()
+
+    def _test_date(self, date):
+        query = self.session.query(Date)
+        query = query.filter(Date.date == date).one_or_none()
+        return query
+
+    def _test_ucits_daily_value(self, code, date):
+        code_id = self.session.query(Ucits).filter(Ucits.code == code).one().id
+        date_id = self.session.query(Date).filter(Date.date == date).one().id
+        query = self.session.query(UcitsDailyValue)
+        query = query.filter(and_(UcitsDailyValue.ucits_id == code_id,
+                                UcitsDailyValue.date_id == date_id)
+                                ).one_or_none()
+        return query
+
+    def _test_ucits_perf_ucits(self, code, date):
+        code_id = self.session.query(Ucits).filter(Ucits.code == code).one().id
+        date_id = self.session.query(Date).filter(Date.date == date).one().id
+        query = self.session.query(UcitsPerformanceUcits)
+        query = query.filter(and_(UcitsPerformanceUcits.ucits_id == code_id,
+                                  UcitsPerformanceUcits.date_id == date_id)
+                                ).one_or_none()
+        return query
+
+    def _test_ucits_perf_morningstar(self, code, date):
+        code_id = self.session.query(Ucits).filter(Ucits.code == code).one().id
+        date_id = self.session.query(Date).filter(Date.date == date).one().id
+        query = self.session.query(UcitsPerformanceMorningstar)
+        query = query.filter(and_(
+                            UcitsPerformanceMorningstar.ucits_id == code_id,
+                            UcitsPerformanceMorningstar.date_id == date_id,)
+                                ).one_or_none()
+        return query
+
+    def add(self, datas):
+
+        # adding the currency
+        if not self._test_currency(datas["currency"]):
+            values = { "symbol": datas["currency"] }
+            try:
+                new_entry = Currency(**values)
+                self.session.add(new_entry)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                print("error while adding currency {}".format(
+                                                        datas["currency"]))
+                raise
+
+        # adding the ucits
+        if not self._test_ucits(datas["code"]):
+            values = { "code": datas["code"],
+                        "name": datas["name"],
+                        "owner": datas["owner"],
+                        "resume": datas["resume"]
+                    }
+            try:
+                new_entry = Ucits(**values)
+                self.session.add(new_entry)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                print("error while adding ucits {}, {}, {}, {}".format(
+                                        datas["name"].encode("utf_8"),
+                                        datas["code"].encode("utf_8"),
+                                        datas["owner"].encode("utf_8"),
+                                        datas["resume"].encode("utf_8")))
+                raise
+        else:
+            self._test_ucits_datas(datas)
+
+        # adding the date
+        if not self._test_date(datas["date"]):
+            values = { "date": datas["date"] }
+            try:
+                new_entry = Date(**values)
+                self.session.add(new_entry)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                print("error while adding date {}".format(datas["date"]))
+                raise
+
+        # adding the daily values of the ucits
+        if not self._test_ucits_daily_value(datas["code"], datas["date"]):
+            code = self.session.query(Ucits).filter(Ucits.code == datas["code"]
+                                                    ).one().id
+            date = self.session.query(Date).filter(Date.date == datas["date"]
+                                                    ).one().id
+            currency = self.session.query(Currency).filter(Currency.symbol ==
+                                                    datas["currency"]).one().id
+            values = { "ucits_id": code,
+                        "date_id": date,
+                        "timestamp": datetime.datetime.now(),
+                        "currency_id": currency,
+                        "value": datas["value"],
+                        "variation": datas["variation"]
+                    }
+            try:
+                new_entry = UcitsDailyValue(**values)
+                self.session.add(new_entry)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                print("error while adding daily value of {} code {}".format(
+                                        datas["code"].encode("utf_8"),
+                                        datas["name"].encode("utf_8")))
+                raise
+
+        # adding performances
+        if not self._test_ucits_perf_ucits(datas["code"], datas["date"]):
+            code = self.session.query(Ucits).filter(Ucits.code == datas["code"]
+                                                    ).one().id
+            date = self.session.query(Date).filter(Date.date == datas["date"]
+                                                    ).one().id
+            perf = datas["ucits_perf"]
+            values = { "ucits_id": code,
+                        "date_id": date,
+                        "last_week": perf[0],
+                        "january_first": perf[1],
+                        "last_month": perf[2],
+                        "three_months": perf[3],
+                        "six_months": perf[4],
+                        "one_year": perf[5],
+                        "three_years": perf[6],
+                        "five_years": perf[7],
+                        "ten_years": perf[8]
+                    }
+            try:
+                new_entry = UcitsPerformanceUcits(**values)
+                self.session.add(new_entry)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                print("error while adding performances of ucits {} code {} :\n\
+                    values : {}".format( datas["name"], datas["code"], perf))
+                raise
+
+        if not self._test_ucits_perf_morningstar(datas["code"], datas["date"]):
+            code = self.session.query(Ucits).filter(Ucits.code == datas["code"]
+                                                    ).one().id
+            date = self.session.query(Date).filter(Date.date == datas["date"]
+                                                    ).one().id
+            perf = datas["ucits_morningstar_perf"]
+            values = { "ucits_id": code,
+                        "date_id": date,
+                        "last_week": perf[0],
+                        "january_first": perf[1],
+                        "last_month": perf[2],
+                        "three_months": perf[3],
+                        "six_months": perf[4],
+                        "one_year": perf[5],
+                        "three_years": perf[6],
+                        "five_years": perf[7],
+                        "ten_years": perf[8]
+                    }
+            try:
+                new_entry = UcitsPerformanceMorningstar(**values)
+                self.session.add(new_entry)
+                self.session.commit()
+            except sqlalchemy.exc.IntegrityError:
+                print("error while adding morningstar performances of ucits {}\
+                    code {} : \n\
+                    values : {}".format( datas["name"], datas["code"], perf))
+                raise
+
+
+if __name__ == "__main__":
+    
+    def dload_prettify_ucits_info(url, url_perf):
+
+        def _get_performance(perf_list):
+            """
+            return(last_week, january_first, last_month, three_months, 
+                    six_months, one_year, three_years, five_years, ten_years)
+            """
+            performance = []
+            for elem in perf_list:
+                variation = elem.string.strip("%")
+                performance.append(float(variation))
+            return tuple(performance)
+
+        r_ucits = requests.get(url)
+        soup_ucits = BeautifulSoup(r_ucits.text, "lxml")
+        r_perf = requests.get(url_perf)
+        soup_perf = BeautifulSoup(r_perf.text, "lxml")
+
+        # Datas for Table Ucits"
+        # name, code, owner, resume
+        ucits_name = soup_ucits.find("a", {"itemprop": "name"}
+                                ).contents[0].string.strip()
+        ucits_code = soup_ucits.find("h2").string.split()[0]
+        ucits_owner = " ".join(soup_ucits.find("h2").string.split()[3:]
+                                    ).lstrip("(").rstrip(")")
+        ucits_resume = soup_ucits.find("p", {"class": "taj"}
+                                    ).find("b").string
+        # Datas for Table UcitsDailyValue :
+        # date, value, currency, variation
+        price_list = soup_ucits.find("div", {"id": "fiche_cours_details"}
+                                                            ).find_all("td")
+        for elem in price_list:
+            if elem.string:
+                try:
+                    date = datetime.date(int(elem.string.split("/")[2]),
+                                        int(elem.string.split("/")[1]),
+                                        int(elem.string.split("/")[0]))
+                    break
+                except IndexError:
+                    pass
+
+        (value, currency) = soup_ucits.find("big", {"class": "fv-last"}
+                                ).contents[1].string.split(" ")
+        
+        value = float(value)
+        variation = soup_ucits.find("big", {"class": "fv-var"}
+                                                ).contents[1].string.strip("%")
+        variation = float(variation)
+        
+        # Data for Table UcitsPerformanceDate
+        table_performance_date = soup_perf.table.contents[1].find(
+                                                    id="perfDate").string
+        perf_date = datetime.date(
+                                int(table_performance_date.split("/")[2]),
+                                int(table_performance_date.split("/")[1]),
+                                int(table_performance_date.split("/")[0]))
+
+        # Data for ucits performance
+        table_performance = soup_perf.table.contents[1].find(
+                                                id="perfChart").find_all("td")
+        if not len(table_performance) == 30:
+            raise ValueError("table of performance is not 30 elements")
+        
+        # Data for Table UcitsPerformanceUcits
+        ucits_perf = _get_performance(table_performance[11:20])
+
+        # Data for Table UcitsPerformanceMorningstar
+        ucits_morningstar_perf = _get_performance(table_performance[21:])
+
+
+        return {"name": ucits_name, "code": ucits_code, "owner": ucits_owner,
+                "resume": ucits_resume, "date": date,
+                "value": value, "currency": currency, "variation": variation, 
+                "ucits_perf": ucits_perf, 
+                "ucits_morningstar_perf": ucits_morningstar_perf
+                }
+
+
+    engine = create_engine(db_url, echo=False, convert_unicode=True)
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    session = Session()
+        
+
+    try:    
+        if ucits_list and ucits_url:
+            u_handler = DbHandlerUcits(session)
+            for ucits in ucits_list:
+                ucits_datas = dload_prettify_ucits_info(
+                                            "{}{}".format(ucits_url, ucits),
+                                            "{}{}".format(ucits_perf, ucits))
+                u_handler.add(ucits_datas)
+                #print(ucits_datas)
+
+        if stock_list and stock_url:
+            for stock in stock_list:
+                stock_datas = dload_prettify_stock_info(
+                                            "{}{}".format(stock_url, stock))
+            
+    except KeyboardInterrupt:
+        sys.exit(1)
+    
