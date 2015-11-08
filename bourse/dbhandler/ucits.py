@@ -52,15 +52,15 @@ class UcitsAdd():
                                 ).one_or_none()
         return query
 
-    def _test_ucits_perf_ucits(self, code, date):
+    def _test_ucits_perf(self, code, date):
         code_id = self.session.query(models.Ucits).filter(
                                             models.Ucits.code == code).one().id
         date_id = self.session.query(models.Date).filter(
                                             models.Date.date == date).one().id
-        query = self.session.query(models.UcitsPerformanceUcits)
+        query = self.session.query(models.UcitsPerformance)
         query = query.filter(and_(
-                            models.UcitsPerformanceUcits.ucits_id == code_id,
-                            models.UcitsPerformanceUcits.date_id == date_id)
+                            models.UcitsPerformance.ucits_id == code_id,
+                            models.UcitsPerformance.date_id == date_id)
                             ).one_or_none()
         return query
 
@@ -149,7 +149,7 @@ class UcitsAdd():
                 raise
 
         # adding performances
-        if not self._test_ucits_perf_ucits(datas["code"], datas["date"]):
+        if not self._test_ucits_perf(datas["code"], datas["date"]):
             code = self.session.query(models.Ucits).filter(
                                 models.Ucits.code == datas["code"]).one().id
             date = self.session.query(models.Date).filter(
@@ -168,7 +168,7 @@ class UcitsAdd():
                         "ten_years": perf[8]
                     }
             try:
-                new_entry = models.UcitsPerformanceUcits(**values)
+                new_entry = models.UcitsPerformance(**values)
                 self.session.add(new_entry)
                 self.session.commit()
             except sqlalchemy.exc.IntegrityError:

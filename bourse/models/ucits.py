@@ -32,8 +32,8 @@ class UcitsDailyValue(Base):
     value = Column(Float, nullable=False)
     variation = Column(Float, nullable=False)
 
-class UcitsPerformanceUcits(Base):
-    __tablename__ = "ucits_performance_ucits"
+class UcitsPerformance(Base):
+    __tablename__ = "ucits_performance"
     id = Column(Integer, primary_key=True)
     ucits_id = Column(Integer, ForeignKey(Ucits.id), nullable=False)
     ucits = relationship("Ucits")
