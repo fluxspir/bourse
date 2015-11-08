@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
 #
 
+import pdb
+
 import datetime
 
 import requests
 from bs4 import BeautifulSoup, SoupStrainer
 
-class UcitsBoursorama():
+import os
+home = os.path.expanduser("~")
+
+class TrackerBoursorama():
     def __init__(self, url, url_perf):
         self.url = url
         self.url_perf = url_perf
@@ -24,68 +29,69 @@ class UcitsBoursorama():
                 performance.append(float(variation))
             return tuple(performance)
 
-        r_ucits = requests.get(self.url)
-        soup_ucits = BeautifulSoup(r_ucits.text, "lxml")
+        r_tracker = requests.get(self.url)
+        soup_tracker = BeautifulSoup(r_tracker.text, "lxml")
         r_perf = requests.get(self.url_perf)
         soup_perf = BeautifulSoup(r_perf.text, "lxml")
-
-        # Datas for Table Ucits"
+        
+        # Datas for Table Tracker"
         # name, code, owner, resume
-        ucits_name = soup_ucits.find("a", {"itemprop": "name"}
+        tracker_name = soup_tracker.find("a", {"itemprop": "name"}
                                 ).contents[0].string.strip()
-        ucits_code = soup_ucits.find("h2").string.split()[0]
-        ucits_owner = " ".join(soup_ucits.find("h2").string.split()[3:]
-                                    ).lstrip("(").rstrip(")")
-        ucits_resume = soup_ucits.find("p", {"class": "taj"}
-                                    ).find("b").string
+        tracker_code = soup_tracker.find("h2").string.split()[0]
+        tracker_resume = soup_tracker.find("div", {"class": "taj"}
+                                    ).find("strong").string
         # Datas for Table UcitsDailyValue :
         # date, value, currency, variation
-        price_list = soup_ucits.find("div", {"id": "fiche_cours_details"}
+        price_list = soup_tracker.find("div", {"id": "fiche_cours_details"}
                                                             ).find_all("td")
         for elem in price_list:
-            if elem.string:
-                try:
-                    date = datetime.date(int(elem.string.split("/")[2]),
-                                        int(elem.string.split("/")[1]),
-                                        int(elem.string.split("/")[0]))
+            try:
+                if len(elem.contents[0].split("/")) == 3:
+                    shortyear = elem.contents[0].split("/")[2].replace(
+                                                                u'\xa0', u'')
+                    date = datetime.date(int(u'20' + shortyear),
+                                        int(elem.contents[0].split("/")[1]),
+                                        int(elem.contents[0].split("/")[0]))
                     break
-                except IndexError:
-                    pass
+            except TypeError:
+                pass
 
-        (value, currency) = soup_ucits.find("big", {"class": "fv-last"}
-                                ).contents[1].string.split(" ")
+        (value, ignore, currency) = soup_tracker.find("span", {"class": 
+                                                "cotation"}).string.split(" ")
         
         value = float(value)
-        variation = soup_ucits.find("big", {"class": "fv-var"}
+        variation = soup_tracker.find("big", {"class": "fv-var"}
                                                 ).contents[1].string.strip("%")
         variation = float(variation)
         
-#        # Data for Table UcitsPerformanceDate
+        # Data for Table UcitsPerformanceDate
 #        table_performance_date = soup_perf.table.contents[1].find(
 #                                                    id="perfDate").string
 #        perf_date = datetime.date(
 #                                int(table_performance_date.split("/")[2]),
 #                                int(table_performance_date.split("/")[1]),
 #                                int(table_performance_date.split("/")[0]))
-#
+#        perf_date = date
+
         # Data for ucits performance
-        table_performance = soup_perf.table.contents[1].find(
-                                                id="perfChart").find_all("td")
-        if not len(table_performance) == 30:
+        # soup_perf.find(id="perfChart")
+        table_performance = soup_perf.find(id="perfChart").find_all("td")
+        if not len(table_performance) == 40:
             raise ValueError("table of performance is not 30 elements")
         
         # Data for Table UcitsPerformanceUcits
-        ucits_perf = _get_performance(table_performance[11:20])
+        tracker_perf = _get_performance(table_performance[11:20])
 
         # Data for Table UcitsPerformanceMorningstar
-        ucits_morningstar_perf = _get_performance(table_performance[21:])
+        tracker_morningstar_perf = _get_performance(table_performance[21:30])
 
 
-        return {"name": ucits_name, "code": ucits_code, "owner": ucits_owner,
-                "resume": ucits_resume, "date": date,
+        return {"name": tracker_name, "code": tracker_code,
+                "resume": tracker_resume, "date": date,
                 "value": value, "currency": currency, "variation": variation, 
-                "ucits_perf": ucits_perf, 
-                "ucits_morningstar_perf": ucits_morningstar_perf
+                "tracker_perf": tracker_perf, 
+                "tracker_morningstar_perf": tracker_morningstar_perf
                 }
 
 

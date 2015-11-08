@@ -15,7 +15,6 @@ class Tracker(Base):
     id = Column(Integer, primary_key=True)
     code = Column(String, unique=True)
     name = Column(String)
-    owner = Column(String)
     resume = Column(String)
 
 class TrackerDailyValue(Base):
@@ -35,7 +34,7 @@ class TrackerDailyValue(Base):
 class TrackerPerformance(Base):
     __tablename__ = "tracker_performance"
     id = Column(Integer, primary_key=True)
-    trocker_id = Column(Integer, ForeignKey(Tracker.id), nullable=False)
+    tracker_id = Column(Integer, ForeignKey(Tracker.id), nullable=False)
     tracker = relationship("Tracker")
     date_id = Column(Integer, ForeignKey(basic.Date.id), nullable=False)
     date = relationship("Date")

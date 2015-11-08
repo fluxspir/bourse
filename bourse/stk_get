@@ -115,6 +115,7 @@ if __name__ == "__main__":
                     ucits_handler = dbhandler.UcitsAdd(meta.session)
                     if "boursorama" in ucits_url:
                         for ucits in ucits_list:
+                            print("Treating ucits {}".format(ucits))
                             ucits_parser = parsers.UcitsBoursorama(
                                             "{}{}".format(ucits_url, ucits),
                                             "{}{}".format(ucits_perf, ucits))
@@ -123,8 +124,20 @@ if __name__ == "__main__":
 
                     else:
                         implementation_lack(ucits_url)
+
             elif elem == "tracker":
-                tracker_handler = dbhandler.TrackerAdd(meta.session)
+                if tracker_list and tracker_url:
+                    tracker_handler = dbhandler.TrackerAdd(meta.session)
+                    if "boursorama" in tracker_url:
+                        for tracker in tracker_list:
+                            print("Treating tracker {}".format(tracker))
+                            tracker_parser = parsers.TrackerBoursorama(
+                                        "{}{}".format(tracker_url, tracker),
+                                        "{}{}".format(tracker_perf, tracker))
+                            tracker_datas = tracker_parser.get_datas()
+                        tracker_handler.add(tracker_datas)
+                    else:
+                        implementation_lack(tracker_url)
 
             elif elem == "stock":
                 if stock_list and stock_url:

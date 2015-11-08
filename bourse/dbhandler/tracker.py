@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 
+import datetime
 import models
 import sqlalchemy
 from sqlalchemy import and_
@@ -21,7 +22,7 @@ class TrackerAdd():
 
     def _test_tracker_datas(self, datas):
         query = self.session.query(models.Tracker)
-        for elem in "name", "owner", "resume":
+        for elem in "name", "resume":
             result = query.filter(models.Tracker.code == datas["code"]).one()
             if not getattr(result, elem) == datas[elem]:
                 old_value = getattr(result, elem)
@@ -47,7 +48,8 @@ class TrackerAdd():
         date_id = self.session.query(models.Date).filter(
                                             models.Date.date == date).one().id
         query = self.session.query(models.TrackerDailyValue)
-        query = query.filter(and_(models.TrackerDailyValue.ucits_id == code_id,
+        query = query.filter(and_(
+                                models.TrackerDailyValue.tracker_id == code_id,
                                 models.TrackerDailyValue.date_id == date_id)
                                 ).one_or_none()
         return query
@@ -59,7 +61,7 @@ class TrackerAdd():
                                             models.Date.date == date).one().id
         query = self.session.query(models.TrackerPerformance)
         query = query.filter(and_(
-                            models.TrackerPerformance.ucits_id == code_id,
+                            models.TrackerPerformance.tracker_id == code_id,
                             models.TrackerPerformance.date_id == date_id)
                             ).one_or_none()
         return query
@@ -69,9 +71,9 @@ class TrackerAdd():
                                         models.Tracker.code == code).one().id
         date_id = self.session.query(models.Date).filter(
                                         models.Date.date == date).one().id
-        query = self.session.query(models.trackerPerformanceMorningstar)
+        query = self.session.query(models.TrackerPerformanceMorningstar)
         query = query.filter(and_(
-                    models.TrackerPerformanceMorningstar.ucits_id == code_id,
+                    models.TrackerPerformanceMorningstar.tracker_id == code_id,
                     models.TrackerPerformanceMorningstar.date_id == date_id,)
                     ).one_or_none()
         return query
@@ -94,7 +96,6 @@ class TrackerAdd():
         if not self._test_tracker(datas["code"]):
             values = { "code": datas["code"],
                         "name": datas["name"],
-                        "owner": datas["owner"],
                         "resume": datas["resume"]
                     }
             try:
@@ -105,7 +106,6 @@ class TrackerAdd():
                 print("error while adding tracker {}, {}, {}, {}".format(
                                         datas["name"].encode("utf_8"),
                                         datas["code"].encode("utf_8"),
-                                        datas["owner"].encode("utf_8"),
                                         datas["resume"].encode("utf_8")))
                 raise
         else:
