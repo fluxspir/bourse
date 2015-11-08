@@ -14,6 +14,9 @@ from basic import Currency, Date
 from ucits import (Ucits, UcitsDailyValue,
                     UcitsPerformanceUcits, UcitsPerformanceMorningstar)
 
+from tracker import (Tracker, TrackerDailyValue, TrackerPerformance,
+                    TrackerPerformanceMorningstar)
+
 def init():
     parser = ConfigParser.ConfigParser()
     home = os.path.expanduser("~")
