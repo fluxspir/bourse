@@ -38,14 +38,14 @@ except ConfigParser.NoOptionError:
     ucits_url = None
     ucits_perf = None
 
-#try:
-#    tracker_list = json.loads(confparser.get("bourse", "tracker"))
-#    tracker_url = confparser.get("bourse", "tracker_url")
-#    tracker_perf = confparser.get("bourse", "tracker_perf")
-#except ConfigParser.NoOptionError:
-#    tracker_list = []
-#    tracker_url = None
-#    tracker_perf = None
+try:
+    tracker_list = json.loads(confparser.get("bourse", "tracker"))
+    tracker_url = confparser.get("bourse", "tracker_url")
+    tracker_perf = confparser.get("bourse", "tracker_perf")
+except ConfigParser.NoOptionError:
+    tracker_list = []
+    tracker_url = None
+    tracker_perf = None
 
 try:
     stock_list = json.loads(confparser.get("bourse", "stock"))
@@ -124,7 +124,7 @@ if __name__ == "__main__":
                     else:
                         implementation_lack(ucits_url)
             elif elem == "tracker":
-                pass
+                tracker_handler = dbhandler.TrackerAdd(meta.session)
 
             elif elem == "stock":
                 if stock_list and stock_url:
