@@ -120,8 +120,7 @@ if __name__ == "__main__":
                                             "{}{}".format(ucits_url, ucits),
                                             "{}{}".format(ucits_perf, ucits))
                             ucits_datas = ucits_parser.get_datas()
-                        ucits_handler.add(ucits_datas)
-
+                            ucits_handler.add(ucits_datas)
                     else:
                         implementation_lack(ucits_url)
 
@@ -135,7 +134,7 @@ if __name__ == "__main__":
                                         "{}{}".format(tracker_url, tracker),
                                         "{}{}".format(tracker_perf, tracker))
                             tracker_datas = tracker_parser.get_datas()
-                        tracker_handler.add(tracker_datas)
+                            tracker_handler.add(tracker_datas)
                     else:
                         implementation_lack(tracker_url)
 
